@@ -16,7 +16,7 @@ public:
 	
 	bool HasSpecialCharacters(const char* str)
 	{
-		return str[strspn(str, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_")] != 0;
+		return strlen(str) < 4 || str[strspn(str, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_")] != 0;
 	}
 
 	struct LoadedModuleData_t

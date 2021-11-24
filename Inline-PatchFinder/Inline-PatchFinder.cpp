@@ -40,7 +40,7 @@ int main()
 
         if (!m_bRPMResult)
         {
-            LOG("[-] Couldn't read first 0x10000 bytes of module %s...\n", ModuleList.m_szModuleName.c_str());
+       //     LOG("[-] Couldn't read first 0x10000 bytes of module %s...\n", ModuleList.m_szModuleName.c_str());
             continue;
         }
 
@@ -112,6 +112,33 @@ int main()
             continue;
         }
 
+        //read the file
+        const HANDLE m_hFile = CreateFileA(ModuleList.m_szModulePath.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+        if (!m_hFile || m_hFile == INVALID_HANDLE_VALUE)
+        {
+            LOG("[-] CreateFile failed with error code #%i...\n", GetLastError());
+            continue;
+        }
+
+        //map the file
+        const HANDLE m_hMappedFile = CreateFileMappingA(m_hFile, nullptr, PAGE_READONLY | SEC_IMAGE, 0, 0, nullptr);
+        if (!m_hMappedFile || m_hMappedFile == INVALID_HANDLE_VALUE)
+        {
+            CloseHandle(m_hFile);
+            LOG("[-] CreateFileMapping failed with error code #%i...\n", GetLastError());
+            continue;
+        }
+
+        //map the sections appropriately
+        ZyanU8* m_FileMap = reinterpret_cast<ZyanU8*>(MapViewOfFile(m_hMappedFile, FILE_MAP_READ, 0, 0, 0));
+        if (!m_FileMap)
+        {
+            CloseHandle(m_hFile);
+            CloseHandle(m_hMappedFile);
+            LOG("[-] MapViewOfFile failed with error code #%i...\n", GetLastError());
+            continue;
+        }
+
 
         WORD* m_pOrdinalAddress = reinterpret_cast<WORD*>(m_pImageExportDirectory.AddressOfNameOrdinals + reinterpret_cast<uintptr_t>(&m_pImageExportDirectory) - m_dSavedExportVirtualAddress);
         DWORD* m_pNamesAddress = reinterpret_cast<DWORD*>(m_pImageExportDirectory.AddressOfNames + reinterpret_cast<uintptr_t>(&m_pImageExportDirectory) - m_dSavedExportVirtualAddress);
@@ -136,32 +163,6 @@ int main()
                 continue;
             }
 
-            //read the file
-            const HANDLE m_hFile = CreateFileA(ModuleList.m_szModulePath.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
-            if (!m_hFile || m_hFile == INVALID_HANDLE_VALUE)
-            {
-                LOG("[-] CreateFile failed with error code #%i...\n", GetLastError());
-                continue;
-            }
-
-            //map the file
-            const HANDLE m_hMappedFile = CreateFileMappingA(m_hFile, nullptr, PAGE_READONLY | SEC_IMAGE, 0, 0, nullptr);
-            if (!m_hMappedFile || m_hMappedFile == INVALID_HANDLE_VALUE)
-            {
-                CloseHandle(m_hFile);
-                LOG("[-] CreateFileMapping failed with error code #%i...\n", GetLastError());
-                continue;
-            }
-
-            //map the sections appropriately
-            ZyanU8* m_FileMap = reinterpret_cast<ZyanU8*>(MapViewOfFile(m_hMappedFile, FILE_MAP_READ, 0, 0, 0));
-            if (!m_FileMap)
-            {
-                CloseHandle(m_hFile);
-                CloseHandle(m_hMappedFile);
-                LOG("[-] MapViewOfFile failed with error code #%i...\n", GetLastError());
-                continue;
-            }
 
             bool bIsDifferent = false;
             for (int x = 0; x < 15; ++x)
@@ -173,8 +174,7 @@ int main()
             // Print and cache differences.
             if (bIsDifferent)
             {
-                char* m_szExportName = reinterpret_cast<char*>(m_pNamesAddress[i] +
-                    reinterpret_cast<uintptr_t>(&m_pImageExportDirectory) - m_dSavedExportVirtualAddress);
+                char* m_szExportName = reinterpret_cast<char*>(m_pNamesAddress[i] + reinterpret_cast<uintptr_t>(&m_pImageExportDirectory) - m_dSavedExportVirtualAddress);
 
                 std::string m_szExportNameStr(m_szExportName);
 
@@ -200,7 +200,6 @@ int main()
                 for (int x = 0; x < 15; ++x) {
                     LOG("%02X ", m_WholeModuleBuffer[m_AddressFromBaseAddress + x]);
                 }  LOG("\n\n");
-
 
                 // Initialize decoder context
                 ZydisDecoder decoder;
@@ -233,11 +232,11 @@ int main()
                     runtime_address += instruction.length;
                 } LOG("\n");
             }
-
-            UnmapViewOfFile(m_FileMap);
-            CloseHandle(m_hFile);
-            CloseHandle(m_hMappedFile);
         }
+
+        UnmapViewOfFile(m_FileMap);
+        CloseHandle(m_hFile);
+        CloseHandle(m_hMappedFile);
     }
 
     // Cleanup, and finish off.

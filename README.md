@@ -12,7 +12,7 @@
 
   <p align="center">
   
- ![ikFLJjM](https://i.imgur.com/YzaujbN.png)
+ ![ikFLJjM](https://i.imgur.com/EIxNYDN.png)
 
 
 </p>
