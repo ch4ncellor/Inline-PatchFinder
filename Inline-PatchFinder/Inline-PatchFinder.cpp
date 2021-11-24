@@ -51,51 +51,30 @@ int main()
             continue;
         }
 
-        const PIMAGE_NT_HEADERS32 m_pImageNTHeaders32 = reinterpret_cast<PIMAGE_NT_HEADERS32>(reinterpret_cast<ULONG_PTR>(m_ModulePEHeaders) + m_pImageDOSHeaders->e_lfanew);
-        const PIMAGE_NT_HEADERS64 m_pImageNTHeaders64 = reinterpret_cast<PIMAGE_NT_HEADERS64>(reinterpret_cast<ULONG_PTR>(m_ModulePEHeaders) + m_pImageDOSHeaders->e_lfanew);
+        const PIMAGE_NT_HEADERS m_pImageNTHeaders = reinterpret_cast<PIMAGE_NT_HEADERS>(reinterpret_cast<ULONG_PTR>(m_ModulePEHeaders) + m_pImageDOSHeaders->e_lfanew);
 
-        if (m_pImageNTHeaders32->Signature != IMAGE_NT_SIGNATURE)
+        if (m_pImageNTHeaders->Signature != IMAGE_NT_SIGNATURE)
         {
             LOG("[-] Couldn't find IMAGE_NT_SIGNATURE for module %s...\n", ModuleList.m_szModuleName.c_str());
             continue;
         }
 
-        DWORD m_dStartAddressOfSection = NULL;
-        DWORD m_dSizeOfSection = NULL;
-        DWORD m_dSavedExportVirtualAddress = NULL;
-        DWORD m_dSavedExportSize = NULL;
-        DWORD m_dNumberOfSections = NULL;
-        PIMAGE_SECTION_HEADER m_pImageSectionHeader = { 0 };
-
-        // Ensure export directory is actually available.
-        if (m_pImageNTHeaders32->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC)
-        {
-            m_pImageSectionHeader = IMAGE_FIRST_SECTION(m_pImageNTHeaders32);
-            m_dNumberOfSections = m_pImageNTHeaders32->FileHeader.NumberOfSections;
-            m_dSavedExportVirtualAddress = m_pImageNTHeaders32->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
-            m_dSavedExportSize = m_pImageNTHeaders32->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].Size;
-        }
-        else if (m_pImageNTHeaders32->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC)
-        {
-            m_pImageSectionHeader = IMAGE_FIRST_SECTION(m_pImageNTHeaders64);
-            m_dNumberOfSections = m_pImageNTHeaders64->FileHeader.NumberOfSections;
-            m_dSavedExportVirtualAddress = m_pImageNTHeaders64->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
-            m_dSavedExportSize = m_pImageNTHeaders64->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].Size;
-        }
-        else
-        {
-            LOG("[-] Couldn't find architecture type for module %s...\n", ModuleList.m_szModuleName.c_str());
-            continue;
-        }
-
+        DWORD m_dSavedExportVirtualAddress = m_pImageNTHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+        DWORD m_dSavedExportSize = m_pImageNTHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].Size;
+      
         if (!m_dSavedExportVirtualAddress || !m_dSavedExportSize)
         {
             LOG("[-] Couldn't find export table of module %s...\n", ModuleList.m_szModuleName.c_str());
             continue;
         }
 
+        PIMAGE_SECTION_HEADER m_pImageSectionHeader = IMAGE_FIRST_SECTION(m_pImageNTHeaders);
+
+        DWORD m_dStartAddressOfSection = NULL;
+        DWORD m_dSizeOfSection = NULL;
+
         // Save off our start address and size of .text section, so we can detect OOB exports later.
-        for (UINT i = 0; i != m_dNumberOfSections; ++i, ++m_pImageSectionHeader) {
+        for (UINT i = 0; i != m_pImageNTHeaders->FileHeader.NumberOfSections; ++i, ++m_pImageSectionHeader) {
             if (!strstr((char*)m_pImageSectionHeader->Name, ".text") ||
                 !m_pImageSectionHeader->Misc.VirtualSize)
             {
@@ -121,10 +100,6 @@ int main()
             continue;
         }
 
-        WORD* m_pOrdinalAddress = reinterpret_cast<WORD*>(m_pImageExportDirectory.AddressOfNameOrdinals + reinterpret_cast<uintptr_t>(&m_pImageExportDirectory) - m_dSavedExportVirtualAddress);
-        DWORD* m_pNamesAddress = reinterpret_cast<DWORD*>(m_pImageExportDirectory.AddressOfNames + reinterpret_cast<uintptr_t>(&m_pImageExportDirectory) - m_dSavedExportVirtualAddress);
-        DWORD* m_pFunctionAddress = reinterpret_cast<DWORD*>(m_pImageExportDirectory.AddressOfFunctions + reinterpret_cast<uintptr_t>(&m_pImageExportDirectory) - m_dSavedExportVirtualAddress);
-
         BYTE m_WholeModuleBuffer[3000000];
         m_bRPMResult = ReadProcessMemory(g_Utilities.TargetProcess,
             reinterpret_cast<LPCVOID>(ModuleList.m_ModuleBaseAddress),
@@ -136,6 +111,11 @@ int main()
         {
             continue;
         }
+
+
+        WORD* m_pOrdinalAddress = reinterpret_cast<WORD*>(m_pImageExportDirectory.AddressOfNameOrdinals + reinterpret_cast<uintptr_t>(&m_pImageExportDirectory) - m_dSavedExportVirtualAddress);
+        DWORD* m_pNamesAddress = reinterpret_cast<DWORD*>(m_pImageExportDirectory.AddressOfNames + reinterpret_cast<uintptr_t>(&m_pImageExportDirectory) - m_dSavedExportVirtualAddress);
+        DWORD* m_pFunctionAddress = reinterpret_cast<DWORD*>(m_pImageExportDirectory.AddressOfFunctions + reinterpret_cast<uintptr_t>(&m_pImageExportDirectory) - m_dSavedExportVirtualAddress);
 
         // Traverse through all export functions, getting all function's addresses.
         for (int i = 0; i < m_pImageExportDirectory.NumberOfNames; ++i)
@@ -253,10 +233,6 @@ int main()
                     runtime_address += instruction.length;
                 } LOG("\n");
             }
-            else
-            {
-                //   LOG("[+] Found no difference at export %s!%s [0x%X]\n", ModuleList.m_szModuleName.c_str(), chainExp.c_str(), m_AddressFromBaseAddress);
-            }
 
             UnmapViewOfFile(m_FileMap);
             CloseHandle(m_hFile);
@@ -264,10 +240,7 @@ int main()
         }
     }
 
-
-    //  parseshit();
-
-      // Cleanup, and finish off.
+    // Cleanup, and finish off.
     {
         CloseHandle(g_Utilities.TargetProcess);
     }
