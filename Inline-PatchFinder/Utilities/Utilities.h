@@ -8,13 +8,17 @@ public:
 
 	HANDLE TargetProcess; // for target process
 	DWORD  TargetId;      // for target process
-
 private:
-	HANDLE GetProcess(const char* m_szProcessName);
+	HANDLE GetProcess(int m_nProcessID);
 public:
 
-	bool SetupDesiredProcess(const char* m_szProcessName);
+	bool SetupDesiredProcess(int m_nProcessID);
 	
+	bool HasSpecialCharacters(const char* str)
+	{
+		return str[strspn(str, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_")] != 0;
+	}
+
 	struct LoadedModuleData_t
 	{
 		std::string m_szModuleName;

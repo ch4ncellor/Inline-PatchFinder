@@ -2,12 +2,18 @@
 
 int main()
 {
-    if (!g_Utilities.SetupDesiredProcess(("csgo.exe")))
+    LOG("[+] Please enter the process ID of the desired process: ");
+    int m_nProcessID = 0;
+    std::cin >> m_nProcessID;
+
+    LOG("\n\n");
+
+    if (!g_Utilities.SetupDesiredProcess(m_nProcessID))
     {
         LOG("[!] Awaiting for desired process to open...\n");
         PAUSE_SYSTEM_CMD(false);
 
-        if (!g_Utilities.SetupDesiredProcess(("csgo.exe")))
+        if (!g_Utilities.SetupDesiredProcess(m_nProcessID))
         {
             LOG("[-] Couldn't find desired process...\n");
             PAUSE_SYSTEM_CMD(true);
@@ -190,11 +196,17 @@ int main()
                 char* m_szExportName = reinterpret_cast<char*>(m_pNamesAddress[i] +
                     reinterpret_cast<uintptr_t>(&m_pImageExportDirectory) - m_dSavedExportVirtualAddress);
 
-                std::string gg(m_szExportName);
+                std::string m_szExportNameStr(m_szExportName);
+
+                if (g_Utilities.HasSpecialCharacters(m_szExportNameStr.c_str()))
+                {
+                    // Something is very very wrong, I've only seen this for a few modules.
+                    continue;
+                }
 
                 LOG("[+] Found difference at %s!%s addr:0x%X\n",
                     ModuleList.m_szModuleName.c_str(),
-                    gg.c_str(),
+                    m_szExportNameStr.c_str(),
                     m_AddressFromBaseAddress);
 
                 LOG("[+] Original Buffer: ");

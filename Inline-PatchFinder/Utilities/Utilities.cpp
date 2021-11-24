@@ -1,16 +1,15 @@
 #include "Utilities.h"
 #include <WinTrust.h>
 
-HANDLE C_Utilities::GetProcess(const char* processName) 
+HANDLE C_Utilities::GetProcess(int m_nProcessID)
 {
 	HANDLE handle = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
-	PROCESSENTRY32 entry;
+	PROCESSENTRY32 entry = {0};
 	entry.dwSize = sizeof(entry);
 
 	do 
 	{
-		_bstr_t m_szEntryExeFile(entry.szExeFile);
-		if (!strcmp(m_szEntryExeFile, processName)) 
+		if (m_nProcessID == entry.th32ProcessID)
 		{
 			TargetId = entry.th32ProcessID;
 			CloseHandle(handle);
@@ -55,9 +54,10 @@ bool C_Utilities::EnumerateModulesInProcess()
 	return this->m_OutModules.size() != 0;
 }
 
-bool C_Utilities::SetupDesiredProcess(const char* m_szProcessName)
+
+bool C_Utilities::SetupDesiredProcess(int m_nProcessID)
 {
-	const HANDLE m_hProcessHandle = this->GetProcess(m_szProcessName);
+	const HANDLE m_hProcessHandle = this->GetProcess(m_nProcessID);
 	return m_hProcessHandle && m_hProcessHandle != INVALID_HANDLE_VALUE;
 }
 

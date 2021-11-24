@@ -27,16 +27,6 @@
 #include <Zycore/API/Memory.h>
 #include <Zycore/LibC.h>
 
-enum eDumpType 
-{
-	DUMPTYPE_NONE = 0x0,
-	DUMPTYPE_SIGNATUREBASED = 0x1,
-	DUMPTYPE_HOOKBASED = 0x2,
-	DUMPTYPE_ALLOCATIONBASED = 0x3,
-	DUMPTYPE_ALLFEATURES = 0x4,
-	DUMPTYPE_MAXIMUM = DUMPTYPE_ALLFEATURES + 1
-};
-
 #define LOG( s, ... ) { \
 	printf_s( (s), __VA_ARGS__); \
 }
