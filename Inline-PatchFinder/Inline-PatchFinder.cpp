@@ -191,14 +191,14 @@ int main()
 
                 LOG("[+] Original Buffer: ");
                 for (int x = 0; x < 15; ++x) {
-                    LOG("%02X ", m_WholeModuleBuffer[m_AddressFromBaseAddress + x]);
+                    LOG("%02X ", m_FileMap[m_AddressFromBaseAddress + x]);
                 }  LOG("\n\n");
 
                 LOG("=============================================\n\n");
 
                 LOG("[+] Modified Buffer: ");
                 for (int x = 0; x < 15; ++x) {
-                    LOG("%02X ", m_FileMap[m_AddressFromBaseAddress + x]);
+                    LOG("%02X ", m_WholeModuleBuffer[m_AddressFromBaseAddress + x]);
                 }  LOG("\n\n");
 
 
@@ -218,7 +218,7 @@ int main()
                 ZyanUSize offset = 0;
                 const ZyanUSize length = 15;
                 ZydisDecodedInstruction instruction;
-                while (ZYAN_SUCCESS(ZydisDecoderDecodeBuffer(&decoder, m_FileMap + m_AddressFromBaseAddress + offset, length - offset, &instruction)))
+                while (ZYAN_SUCCESS(ZydisDecoderDecodeBuffer(&decoder, m_WholeModuleBuffer + m_AddressFromBaseAddress + offset, length - offset, &instruction)))
                 {
                     // Print current instruction pointer.
                     LOG("%010" "llx" "  ", runtime_address);
