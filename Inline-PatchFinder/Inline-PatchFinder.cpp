@@ -178,7 +178,7 @@ int main()
 
                 std::string m_szExportNameStr(m_szExportName);
 
-                if (g_Utilities.HasSpecialCharacters(m_szExportNameStr.c_str()))
+                if (m_szExportNameStr.empty() || g_Utilities.HasSpecialCharacters(m_szExportNameStr.c_str()))
                 {
                     // Something is very very wrong, I've only seen this for a few modules.
                     continue;
