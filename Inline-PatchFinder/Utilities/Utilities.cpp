@@ -3,22 +3,8 @@
 
 HANDLE C_Utilities::GetProcess(int m_nProcessID)
 {
-	HANDLE handle = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
-	PROCESSENTRY32 entry = {0};
-	entry.dwSize = sizeof(entry);
-
-	do 
-	{
-		if (m_nProcessID == entry.th32ProcessID)
-		{
-			TargetId = entry.th32ProcessID;
-			CloseHandle(handle);
-			TargetProcess = OpenProcess(PROCESS_ALL_ACCESS, false, TargetId);
-			return TargetProcess;
-		}
-	} while (Process32NextW(handle, &entry));
-
-	return {};
+	TargetProcess = OpenProcess(PROCESS_ALL_ACCESS, false, TargetId);
+	return TargetProcess;
 }
 
 bool C_Utilities::EnumerateModulesInProcess()
