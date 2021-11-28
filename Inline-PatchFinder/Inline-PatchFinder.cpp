@@ -203,7 +203,11 @@ int main()
 
                 // Initialize decoder context
                 ZydisDecoder decoder;
+#if defined (_WIN64)
+                ZydisDecoderInit(&decoder, ZYDIS_MACHINE_MODE_LONG_64, ZydisStackWidth::ZYDIS_STACK_WIDTH_64);
+#else
                 ZydisDecoderInit(&decoder, ZYDIS_MACHINE_MODE_LONG_COMPAT_32, ZydisStackWidth::ZYDIS_STACK_WIDTH_32);
+#endif
 
                 // Initialize formatter. Only required when you actually plan to do instruction
                 // formatting ("disassembling"), like we do here
