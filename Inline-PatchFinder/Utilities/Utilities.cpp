@@ -43,6 +43,7 @@ bool C_Utilities::EnumerateModulesInProcess()
 
 bool C_Utilities::SetupDesiredProcess(int m_nProcessID)
 {
+	TargetId = m_nProcessID;
 	const HANDLE m_hProcessHandle = this->GetProcess(m_nProcessID);
 	return m_hProcessHandle && m_hProcessHandle != INVALID_HANDLE_VALUE;
 }
