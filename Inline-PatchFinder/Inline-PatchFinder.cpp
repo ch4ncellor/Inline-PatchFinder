@@ -100,10 +100,10 @@ int main()
             continue;
         }
 
-        BYTE m_WholeModuleBuffer[3000000];
+        const auto m_CurrentModuleData = std::make_unique<uint8_t[]>(ModuleList.m_ModuleSize);
         m_bRPMResult = ReadProcessMemory(g_Utilities.TargetProcess,
             reinterpret_cast<LPCVOID>(ModuleList.m_ModuleBaseAddress),
-            &m_WholeModuleBuffer,
+            m_CurrentModuleData.get(),
             ModuleList.m_ModuleSize,
             NULL);
 
@@ -111,6 +111,8 @@ int main()
         {
             continue;
         }
+
+        auto m_WholeModuleBuffer = m_CurrentModuleData.get();
 
         //read the file
         const HANDLE m_hFile = CreateFileA(ModuleList.m_szModulePath.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
