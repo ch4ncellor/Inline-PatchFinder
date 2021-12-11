@@ -10,14 +10,8 @@ int main()
 
     if (!g_Utilities.SetupDesiredProcess(m_nProcessID))
     {
-        LOG("[!] Awaiting for desired process to open...\n");
-        PAUSE_SYSTEM_CMD(false);
-
-        if (!g_Utilities.SetupDesiredProcess(m_nProcessID))
-        {
-            LOG("[-] Couldn't find desired process...\n");
-            PAUSE_SYSTEM_CMD(true);
-        }
+        LOG("[-] Couldn't find desired process...\n");
+        PAUSE_SYSTEM_CMD(true);
     }
 
     if (!g_Utilities.EnumerateModulesInProcess())
@@ -28,9 +22,6 @@ int main()
 
     for (auto& ModuleList : g_Utilities.m_OutModules)
     {
-        if (ModuleList.m_szModulePath.empty() || ModuleList.m_ModuleBaseAddress <= 0x0)
-            continue;
-
         BYTE m_ModulePEHeaders[0x10000];
         BOOL m_bRPMResult = ReadProcessMemory(g_Utilities.TargetProcess,
             reinterpret_cast<LPCVOID>(ModuleList.m_ModuleBaseAddress),
@@ -39,10 +30,7 @@ int main()
             NULL);
 
         if (!m_bRPMResult)
-        {
-       //     LOG("[-] Couldn't read first 0x10000 bytes of module %s...\n", ModuleList.m_szModuleName.c_str());
             continue;
-        }
 
         PIMAGE_DOS_HEADER m_pImageDOSHeaders = reinterpret_cast<PIMAGE_DOS_HEADER>(m_ModulePEHeaders);
         if (m_pImageDOSHeaders->e_magic != IMAGE_DOS_SIGNATURE)
@@ -75,11 +63,8 @@ int main()
 
         // Save off our start address and size of .text section, so we can detect OOB exports later.
         for (UINT i = 0; i != m_pImageNTHeaders->FileHeader.NumberOfSections; ++i, ++m_pImageSectionHeader) {
-            if (!strstr((char*)m_pImageSectionHeader->Name, ".text") ||
-                !m_pImageSectionHeader->Misc.VirtualSize)
-            {
+            if (!strstr((char*)m_pImageSectionHeader->Name, ".text"))
                 continue;
-            }
 
             m_dStartAddressOfSection = m_pImageSectionHeader->VirtualAddress;
             m_dSizeOfSection = m_pImageSectionHeader->Misc.VirtualSize;
@@ -93,12 +78,7 @@ int main()
             NULL);
 
         if (!m_bRPMResult)
-        {
-            LOG("[-] Failed to read export directory of module %s with error code #%i...\n",
-                ModuleList.m_szModuleName.c_str(),
-                GetLastError());
             continue;
-        }
 
         const auto m_CurrentModuleData = std::make_unique<uint8_t[]>(ModuleList.m_ModuleSize);
         m_bRPMResult = ReadProcessMemory(g_Utilities.TargetProcess,
@@ -108,13 +88,11 @@ int main()
             NULL);
 
         if (!m_bRPMResult)
-        {
             continue;
-        }
 
-        auto m_WholeModuleBuffer = m_CurrentModuleData.get();
+        const uint8_t *m_WholeModuleBuffer = m_CurrentModuleData.get();
 
-        //read the file
+        // Read the file
         const HANDLE m_hFile = CreateFileA(ModuleList.m_szModulePath.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
         if (!m_hFile || m_hFile == INVALID_HANDLE_VALUE)
         {
@@ -122,7 +100,7 @@ int main()
             continue;
         }
 
-        //map the file
+        // Map the file
         const HANDLE m_hMappedFile = CreateFileMappingA(m_hFile, nullptr, PAGE_READONLY | SEC_IMAGE, 0, 0, nullptr);
         if (!m_hMappedFile || m_hMappedFile == INVALID_HANDLE_VALUE)
         {
@@ -131,7 +109,7 @@ int main()
             continue;
         }
 
-        //map the sections appropriately
+        // Map the sections appropriately
         ZyanU8* m_FileMap = reinterpret_cast<ZyanU8*>(MapViewOfFile(m_hMappedFile, FILE_MAP_READ, 0, 0, 0));
         if (!m_FileMap)
         {
@@ -141,7 +119,6 @@ int main()
             continue;
         }
 
-
         WORD* m_pOrdinalAddress = reinterpret_cast<WORD*>(m_pImageExportDirectory.AddressOfNameOrdinals + reinterpret_cast<uintptr_t>(&m_pImageExportDirectory) - m_dSavedExportVirtualAddress);
         DWORD* m_pNamesAddress = reinterpret_cast<DWORD*>(m_pImageExportDirectory.AddressOfNames + reinterpret_cast<uintptr_t>(&m_pImageExportDirectory) - m_dSavedExportVirtualAddress);
         DWORD* m_pFunctionAddress = reinterpret_cast<DWORD*>(m_pImageExportDirectory.AddressOfFunctions + reinterpret_cast<uintptr_t>(&m_pImageExportDirectory) - m_dSavedExportVirtualAddress);
@@ -149,9 +126,13 @@ int main()
         // Traverse through all export functions, getting all function's addresses.
         for (int i = 0; i < m_pImageExportDirectory.NumberOfNames; ++i)
         {
+            const WORD m_OrdinalNr = m_pOrdinalAddress[i];
+            if (m_OrdinalNr < 0 || m_OrdinalNr >  m_pImageExportDirectory.NumberOfNames)
+                continue;
+
             // I don't yet understand how this is even possible to have exports leading outside of module bounds...
             // But it fucking happens, and not too infrequently either.
-            const DWORD m_AddressFromBaseAddress = m_pFunctionAddress[m_pOrdinalAddress[i]];
+            const DWORD m_AddressFromBaseAddress = m_pFunctionAddress[m_OrdinalNr];
             if (m_AddressFromBaseAddress >= ModuleList.m_ModuleSize)
             {
                 // Too far ahead, this will cause us OOB crashes. Let's get out of here.
@@ -167,11 +148,9 @@ int main()
 
 
             bool bIsDifferent = false;
-            for (int x = 0; x < 15; ++x)
-            {
-                if (m_FileMap[m_AddressFromBaseAddress + x] != m_WholeModuleBuffer[m_AddressFromBaseAddress + x])
-                    bIsDifferent = true;
-            }
+            for (int x = 0; x < 15 && !bIsDifferent; ++x)
+                bIsDifferent = m_FileMap[m_AddressFromBaseAddress + x] != m_WholeModuleBuffer[m_AddressFromBaseAddress + x];
+            
 
             // Print and cache differences.
             if (bIsDifferent)
@@ -202,6 +181,7 @@ int main()
                 for (int x = 0; x < 15; ++x) {
                     LOG("%02X ", m_WholeModuleBuffer[m_AddressFromBaseAddress + x]);
                 }  LOG("\n\n");
+
 
                 // Initialize decoder context
                 ZydisDecoder decoder;
